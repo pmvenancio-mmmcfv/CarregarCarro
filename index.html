@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+
+
+<html lang="pt-PT">
+
+
+<head>
+
+
+<meta charset="UTF-8">
+
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+
+<meta name="theme-color" content="#0f172a">
+
+
+<meta name="mobile-web-app-capable" content="yes">
+
+
+<title>Ohmigo Mobile - Decisor de Carregamento</title>
+
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+
+<style>
+
+
+body { background-color: #0f172a; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+
+
+input[type="range"] { accent-color: #10b981; }
+
+
+.card-glass { background: rgba(30, 41, 59, 0.88); border: 1px solid rgba(255, 255, 255, 0.08); }
+
+
+</style>
+
+
+</head>
+
+
+<body class="pb-12 select-none">
+
+
+​<!-- Header -->
+
+
+<header class="sticky top-0 z-20 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-3 flex justify-between items-center shadow-md">
+
+
+<div class="flex items-center gap-2">
+
+
+<span class="text-emerald-400 text-xl font-bold">⚡</span>
+
+
+<div>
+
+
+<h1 class="text-base font-bold leading-tight">Ohmigo Mobile</h1>
+
+
+<p class="text-[11px] text-emerald-400 font-medium">Decisor de CEME + OPC</p>
+
+
+</div>
+
+
+</div>
+
+
+<div id="timeBadge" class="text-[10px] bg-slate-800 text-slate-300 px-2 py-1 rounded border border-slate-700 font-mono">
+
+
+Modo: Fora Vazio
+
+
+</div>
+
+
+</header>
+
+
+​<main class="max-w-md mx-auto px-4 pt-4 space-y-4">
+
+
+​<!-- 1. Seleção do Posto / OPC -->
+
+
+<section class="card-glass rounded-2xl p-4 space-y-3 shadow-lg">
+
+
+<div class="flex justify-between items-center">
+
+
+<span class="text-xs font-semibold uppercase tracking-wider text-slate-400">1. Local de Carregamento</span>
+
+
+<span class="text-[10px] text-emerald-400">NAP / Mobi.E</span>
+
+
+</div>
+
+
+<div>
+
+
+<label class="block text-xs text-slate-300 mb-1">Seleciona o Operador / Posto Habitual:</label>
+
+
+<select id="opcSelect" onchange="applyOpcPreset()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-medium focus:outline-none focus:border-emerald-500">
+
+
+<option value="0.146|0.0|0.0|0.39">⚡ Atlante (AC <= 22 kW - Ex: Lumiar)</option>
+
+
+<option value="0.235|0.0|0.0|0.44">⚡ Atlante (DC Rápido 40-50 kW)</option>
+
+
+<option value="0.129|0.0|0.0|0.42">🟢 EDP Comercial OPC (AC Rua 22 kW)</option>
+
+
+<option value="0.115|0.012|0.0|0.43">🟠 Galp / Mobiletric (AC 22 kW)</option>
+
+
+<option value="0.135|0.010|0.0|0.45">🔵 KLC / Power Dot (Supermercados)</option>
+
+
+<option value="0.0|0.072|0.0|0.39">🛒 Continente Plug&Charge (AC 11 kW)</option>
+
+
+</select>
+
+
+</div>
+
+
+​<div class="grid grid-cols-3 gap-2 pt-1">
+
+
+<div>
+
+
+<label class="block text-[10px] text-slate-400 mb-1">OPC €/kWh</label>
+
+
+<input id="opcKwh" type="number" step="0.001" value="0.146" oninput="calculate()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white font-bold text-center">
+
+
+</div>
+
+
+<div>
+
+
+<label class="block text-[10px] text-slate-400 mb-1">OPC €/min</label>
+
+
+<input id="opcMin" type="number" step="0.001" value="0.000" oninput="calculate()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white font-bold text-center">
+
+
+</div>
+
+
+<div>
+
+
+<label class="block text-[10px] text-slate-400 mb-1">App Direta (c/IVA)</label>
+
+
+<input id="directVat" type="number" step="0.01" value="0.39" oninput="calculate()" class="w-full bg-slate-900 border border-emerald-500/40 rounded-lg px-2 py-1.5 text-xs text-emerald-300 font-bold text-center">
+
+
+</div>
+
+
+</div>
+
+
+</section>
+
+
+​<!-- 2. Estado da Bateria -->
+
+
+<section class="card-glass rounded-2xl p-4 space-y-3 shadow-lg">
+
+
+<div class="flex justify-between items-center">
+
+
+<span class="text-xs font-semibold uppercase tracking-wider text-slate-400">2. Bateria (Caddy eHybrid)</span>
+
+
+<span id="kwhBadge" class="text-xs bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded font-mono font-bold">17.5 kWh</span>
+
+
+</div>
+
+
+​<div class="grid grid-cols-2 gap-3">
+
+
+<div class="bg-slate-900/70 p-2.5 rounded-xl border border-slate-800">
+
+
+<div class="flex justify-between text-xs mb-1">
+
+
+<span class="text-slate-400">SoC Inicial</span>
+
+
+<span id="socStartVal" class="font-bold text-white">15%</span>
+
+
+</div>
+
+
+<input id="socStart" type="range" min="0" max="90" step="5" value="15" class="w-full" oninput="updateBattery()">
+
+
+</div>
+
+
+<div class="bg-slate-900/70 p-2.5 rounded-xl border border-slate-800">
+
+
+<div class="flex justify-between text-xs mb-1">
+
+
+<span class="text-slate-400">SoC Alvo</span>
+
+
+<span id="socEndVal" class="font-bold text-emerald-400">100%</span>
+
+
+</div>
+
+
+<input id="socEnd" type="range" min="10" max="100" step="5" value="100" class="w-full" oninput="updateBattery()">
+
+
+</div>
+
+
+</div>
+
+
+​<div class="grid grid-cols-2 gap-2 pt-1">
+
+
+<div>
+
+
+<label class="block text-[10px] text-slate-400 mb-1">Potência de Carga</label>
+
+
+<select id="powerKw" onchange="updateBattery()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white font-bold">
+
+
+<option value="11" selected>11 kW AC (Trifásico)</option>
+
+
+<option value="7.4">7.4 kW AC (Monofásico)</option>
+
+
+<option value="3.7">3.7 kW AC (Lento)</option>
+
+
+<option value="38">40 kW DC (Rápido)</option>
+
+
+</select>
+
+
+</div>
+
+
+<div>
+
+
+<label class="block text-[10px] text-slate-400 mb-1">Tempo Estimado</label>
+
+
+<div id="timeVal" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-emerald-400 font-bold font-mono text-center">96 min</div>
+
+
+</div>
+
+
+</div>
+
+
+</section>
+
+
+​<!-- 3. Resultados -->
+
+
+<section class="space-y-2.5">
+
+
+<div class="flex justify-between items-center px-1">
+
+
+<span class="text-xs font-semibold uppercase tracking-wider text-slate-400">3. Ranking de Tarifários (c/ IVA 23%)</span>
+
+
+</div>
+
+
+<div id="resultsContainer" class="space-y-2.5"></div>
+
+
+</section>
+
+
+​</main>
+
+
+​<script>
+
+
+const BATTERY_CAPACITY = 19.7; // kWh úteis
+
+
+const LOSS_FACTOR = 1.05;      // 5% perdas
+
+
+const IVA = 1.23;
+
+
+const IEC = 0.001;             // €/kWh
+
+
+​const cemesList = [
+
+
+{ name: "Iberlectra (Indexado OMIE + TAR)", fv: 0.195, vz: 0.125, act: 0.11 },
+
+
+{ name: "Luzigás (Indexado OMIE + TAR)", fv: 0.198, vz: 0.128, act: 0.00 },
+
+
+{ name: "Goldenergy / ACP Electric", fv: 0.215, vz: 0.145, act: 0.00 },
+
+
+{ name: "EDP Comercial Mobilidade", fv: 0.228, vz: 0.158, act: 0.00 },
+
+
+{ name: "Galp Electric", fv: 0.242, vz: 0.169, act: 0.00 },
+
+
+{ name: "ViaVerde Electric", fv: 0.224, vz: 0.162, act: 0.07 }
+
+
+];
+
+
+​function updateBattery() {
+
+
+let start = parseInt(document.getElementById('socStart').value);
+
+
+let end = parseInt(document.getElementById('socEnd').value);
+
+
+if (end <= start) { end = Math.min(100, start + 5); document.getElementById('socEnd').value = end; }
+
+
+​document.getElementById('socStartVal').innerText = start + '%';
+
+
+document.getElementById('socEndVal').innerText = end + '%';
+
+
+​const delta = (end - start) / 100.0;
+
+
+const kwh = +(BATTERY_CAPACITY * delta * LOSS_FACTOR).toFixed(1);
+
+
+document.getElementById('kwhBadge').innerText = kwh + ' kWh';
+
+
+​const power = parseFloat(document.getElementById('powerKw').value);
+
+
+const mins = Math.round((kwh / power) * 60);
+
+
+document.getElementById('timeVal').innerText = mins + ' min';
+
+
+​calculate();
+
+
+}
+
+
+​function applyOpcPreset() {
+
+
+const val = document.getElementById('opcSelect').value;
+
+
+const parts = val.split('|');
+
+
+document.getElementById('opcKwh').value = parts[0];
+
+
+document.getElementById('opcMin').value = parts[1];
+
+
+document.getElementById('directVat').value = parts[3];
+
+
+calculate();
+
+
+}
+
+
+​function calculate() {
+
+
+const start = parseInt(document.getElementById('socStart').value);
+
+
+const end = parseInt(document.getElementById('socEnd').value);
+
+
+const delta = (end - start) / 100.0;
+
+
+const kwh = +(BATTERY_CAPACITY * delta * LOSS_FACTOR).toFixed(1);
+
+
+const power = parseFloat(document.getElementById('powerKw').value);
+
+
+const mins = Math.round((kwh / power) * 60);
+
+
+​const opcKwh = parseFloat(document.getElementById('opcKwh').value) || 0;
+
+
+const opcMin = parseFloat(document.getElementById('opcMin').value) || 0;
+
+
+const directVat = parseFloat(document.getElementById('directVat').value) || 0;
+
+
+​const opcTotalVat = ((kwh * opcKwh) + (mins * opcMin)) * IVA;
+
+
+​const hour = new Date().getHours();
+
+
+const isVazio = (hour >= 22 || hour < 8);
+
+
+document.getElementById('timeBadge').innerText = isVazio ? "Modo: Vazio (Noite)" : "Modo: Fora de Vazio";
+
+
+​let results = cemesList.map(c => {
+
+
+const rate = isVazio ? c.vz : c.fv;
+
+
+const cemeVat = ((kwh * (rate + IEC)) + (c.act || 0)) * IVA;
+
+
+const total = cemeVat + opcTotalVat;
+
+
+const unit = kwh > 0 ? total / kwh : 0;
+
+
+return {
+
+
+name: c.name,
+
+
+total: total,
+
+
+unit: unit,
+
+
+detail: CEME: ${cemeVat.toFixed(2)}€ | Posto OPC: ${opcTotalVat.toFixed(2)}€
+
+
+};
+
+
+});
+
+
+​// App direta
+
+
+const totalDirect = kwh * directVat;
+
+
+results.push({
+
+
+name: "📱 App Direta do Posto (Ad-Hoc)",
+
+
+total: totalDirect,
+
+
+unit: directVat,
+
+
+detail: Tarifa fixa direta c/ IVA: ${directVat.toFixed(2)} €/kWh
+
+
+});
+
+
+​results.sort((a, b) => a.total - b.total);
+
+
+const best = results[0].total;
+
+
+​const container = document.getElementById('resultsContainer');
+
+
+container.innerHTML = results.map((r, i) => {
+
+
+const diff = r.total - best;
+
+
+const cost100 = r.unit * 16.5;
+
+
+if (i === 0) {
+
+
+return <div style="background: linear-gradient(135deg, #064e3b 0%, #022c22 100%); border: 2px solid #10b981; border-radius: 16px; padding: 14px;"> <div style="display:flex; justify-content:space-between; align-items:center;"> <div> <span style="background: #10b981; color: #022c22; font-weight: 800; font-size: 0.65rem; padding: 2px 6px; border-radius: 4px;">RECOMENDADO</span> <div style="font-weight:800; font-size:1rem; color:#ffffff; margin-top:4px;">${r.name}</div> <div style="font-size:0.75rem; color:#94a3b8;">${r.detail}</div> </div> <div style="text-align:right;"> <div style="font-size:1.5rem; font-weight:800; color:#34d399; line-height:1.1;">${r.total.toFixed(2)} €</div> <div style="font-size:0.75rem; color:#cbd5e1; font-family:monospace;">${r.unit.toFixed(3)} €/kWh</div> </div> </div> <div style="margin-top:8px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between; font-size:0.75rem; color:#d1fae5;"> <span>Custo 100 km: <b>${cost100.toFixed(2)} €</b></span> <span><b>Opção mais barata</b></span> </div> </div>;
+
+
+} else {
+
+
+return <div class="card-glass" style="border-radius: 12px; padding: 12px;"> <div style="display:flex; justify-content:space-between; align-items:center;"> <div> <div style="font-weight:700; font-size:0.9rem; color:#f1f5f9;">#${i+1} ${r.name}</div> <div style="font-size:0.75rem; color:#94a3b8;">${r.detail}</div> </div> <div style="text-align:right;"> <div style="font-size:1.25rem; font-weight:700; color:#f8fafc; line-height:1.1;">${r.total.toFixed(2)} €</div> <div style="font-size:0.75rem; color:#f87171;">+${diff.toFixed(2)} €</div> </div> </div> </div>;
+
+
+}
+
+
+}).join('');
+
+
+}
+
+
+​updateBattery();
+
+
+</script>
+
+
+</body>
+
+
+</html>
+
+
