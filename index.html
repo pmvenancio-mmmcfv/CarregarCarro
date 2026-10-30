@@ -12,7 +12,8 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     body { background-color: #060b14; color: #f1f5f9; font-family: system-ui, -apple-system, sans-serif; }
-    #map { height: 260px; width: 100%; border-radius: 14px; z-index: 10; border: 1px solid #1e293b; }
+    #map { height: 270px; width: 100%; border-radius: 14px; z-index: 10; border: 1px solid #1e293b; background: #0b1320; }
+    .map-dark-tiles .leaflet-tile-pane { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
     input[type="range"] { accent-color: #10b981; }
     .glass-panel { background: #0f172a; border: 1px solid #1e293b; }
     .winner-card { background: linear-gradient(135deg, #064e3b 0%, #022c22 100%); border: 2px solid #10b981; }
@@ -303,12 +304,36 @@
     let favoriteZones = JSON.parse(localStorage.getItem('ev_fav_zones_v2')) || DEFAULT_ZONES;
     let providers = JSON.parse(localStorage.getItem('ev_providers_v2')) || DEFAULT_PROVIDERS;
 
-    // 1. INICIALIZAR MAPA E ZONAS
+    // 1. INICIALIZAR MAPA E ZONAS (Usando subdomínios abertos a para evitar Access Blocked)
     function initApp() {
+      const mapEl = document.getElementById('map');
+      mapEl.classList.add('map-dark-tiles');
+
       map = L.map('map', { zoomControl: true }).setView([38.7650, -9.1750], 13);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap & CartoDB'
+
+      const osmTile = L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap France'
       }).addTo(map);
+
+      const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: '&copy; Esri Satellite'
+      });
+
+      L.control.layers({
+        "Mapa Rua (Escuro)": osmTile,
+        "Satélite (Real)": esriSat
+      }, null, { position: 'topright' }).addTo(map);
+
+      map.on('baselayerchange', function(e) {
+        if (e.name.includes('Satélite')) {
+          mapEl.classList.remove('map-dark-tiles');
+        } else {
+          mapEl.classList.add('map-dark-tiles');
+        }
+      });
+
       pcveMarkersLayer = L.layerGroup().addTo(map);
 
       renderFavoriteZones();
