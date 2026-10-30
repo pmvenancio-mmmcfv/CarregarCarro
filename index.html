@@ -304,16 +304,17 @@
     let favoriteZones = JSON.parse(localStorage.getItem('ev_fav_zones_v2')) || DEFAULT_ZONES;
     let providers = JSON.parse(localStorage.getItem('ev_providers_v2')) || DEFAULT_PROVIDERS;
 
-    // 1. INICIALIZAR MAPA E ZONAS (Usando subdomínios abertos a para evitar Access Blocked)
+    // 1. INICIALIZAR MAPA E ZONAS
     function initApp() {
       const mapEl = document.getElementById('map');
       mapEl.classList.add('map-dark-tiles');
 
       map = L.map('map', { zoomControl: true }).setView([38.7650, -9.1750], 13);
 
-      const osmTile = L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+      // Servidores 100% gratuitos e sem chave API (OpenStreetMap Oficial + Esri Satélite)
+      const osmTile = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
-        attribution: '&copy; OpenStreetMap France'
+        attribution: '&copy; OpenStreetMap'
       }).addTo(map);
 
       const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
@@ -469,44 +470,59 @@
     }
 
     async function loadStationsAround(lat, lon, preferredOpcKey) {
-      document.getElementById('pcveCountBadge').innerText = '📡 A procurar PCVEs num raio de 3 km...';
+      document.getElementById('pcveCountBadge').innerText = '📡 A procurar PCVEs (raio 15km)...';
+      
       let list = BUILTIN_PCVES.map(p => ({
         ...p,
         distKm: calcDistKm(lat, lon, p.lat, p.lon)
-      }));
+      })).filter(p => p.distKm < 15); // Apenas mostra fallbacks se estiverem a menos de 15km
 
-      // Consultar em tempo real OpenStreetMap Overpass API (amenity=charging_station)
+      // Consulta avançada ao OpenStreetMap (nwr inclui nós e polígonos de postos, raio 15km, limite 150 postos)
       try {
-        const overpassQuery = `[out:json][timeout:6];node["amenity"="charging_station"](around:3000,${lat},${lon});out body 25;`;
-        const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(overpassQuery)}`);
+        const query = `[out:json][timeout:15];nwr["amenity"="charging_station"](around:15000,${lat},${lon});out center 150;`;
+        const res = await fetch(`https://overpass-api.de/api/interpreter`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `data=${encodeURIComponent(query)}`
+        });
+        
         if (res.ok) {
           const osm = await res.json();
           (osm.elements || []).forEach(el => {
             const tags = el.tags || {};
             const op = tags.operator || tags.brand || tags.network || 'Mobi.E / OPC';
-            const ref = tags.ref || tags['ref:mobie'] || `PCVE-${el.id.toString().slice(-4)}`;
-            const street = tags['addr:street'] || tags.description || 'Posto de Carregamento Público';
+            const ref = tags.ref || tags['ref:mobie'] || tags.name || `PCVE-${el.id.toString().slice(-4)}`;
+            const street = tags['addr:street'] || tags.description || tags.note || 'Posto de Carregamento Público';
             const opcKey = guessOpcKeyFromOperator(op);
+            
+            const eLat = el.lat || (el.center && el.center.lat);
+            const eLon = el.lon || (el.center && el.center.lon);
+            
+            if(!eLat || !eLon) return;
+
+            // Evitar duplicados com os predefinidos
+            if (list.some(p => p.title.includes(ref) || (Math.abs(p.lat - eLat) < 0.0005 && Math.abs(p.lon - eLon) < 0.0005))) return;
+
             list.push({
               id: ref,
               title: `${ref} · ${op}`,
               addr: street,
-              lat: el.lat,
-              lon: el.lon,
+              lat: eLat,
+              lon: eLon,
               operator: op,
               opcKey: opcKey,
-              power: parseInt(tags['socket:type2:output'] || '22') || 22,
-              distKm: calcDistKm(lat, lon, el.lat, el.lon)
+              power: parseInt(tags['socket:type2:output'] || tags['socket:chademo:output'] || tags['socket:type2_combo:output'] || '22') || 22,
+              distKm: calcDistKm(lat, lon, eLat, eLon)
             });
           });
         }
       } catch (err) {
-        // Continua silenciosamente com os postos predefinidos
+        console.error('Erro na API OSM:', err);
       }
 
       list.sort((a, b) => a.distKm - b.distKm);
       currentStations = list;
-      document.getElementById('pcveCountBadge').innerText = `${list.length} PCVEs disponíveis`;
+      document.getElementById('pcveCountBadge').innerText = `${list.length} PCVEs encontrados`;
 
       renderStationsOnMapAndSelect(preferredOpcKey);
     }
